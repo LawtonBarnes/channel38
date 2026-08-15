@@ -1,0 +1,108 @@
+########  RetroFeed settings  #################################################
+
+# Default settings file
+# This is a "kitchen sink" example, with lots of examples and comments
+# See config_basic.toml for a simpler example
+
+# Settings for the Display object that is created on start-up and that all
+# segments use to print text to the screen (and a few other things)
+[display]
+# height/width are no longer read from here as of the pygame rewrite --
+# they're computed automatically from the actual font metrics vs the
+# framebuffer size (see display.py's Display.__init__). Adjust FONT_SIZE
+# in retrofeed.py instead to change the effective column/row count.
+
+cps = 50                # Print speed in characters-per-second for regular text
+newline_cps = 100        # Print speed (in cps) for "displaying" a skipped line
+beat_seconds = 1        # How long to pause when segments "wait a beat" during
+                        # display, such as between days in a weather forecast,
+                        # or between news stories.  Also used for the pause
+                        # during newlines and elsewhere.  Not to be confused
+                        # with segment_pause which is a playlist property.
+force_uppercase = true
+verbose_updates = true
+24hr_time = true
+
+
+
+# Segment initialization section.  Include ALL segments you plan to use here.
+# Order of initialization doesn't affect playlist order (only "intro" order).
+#
+# Assign each segment to a unique key, which is used by the "playlist" below.
+# Each segment MUST have a "module" value identifying the name of the file in
+# the segments directory that should be used to instantiate the segment.
+# Depending on the segment, there may be additional required initialization
+# values in addition to module.  Refer to the segment's documentation.
+[segments]
+rebel_results = {module='rebel_results'}
+around_the_sec = {module='around_the_sec'}
+metal_shop = {module='metal_shop'}
+conditions = {module='current_conditions'}
+channel_38 = {module='channel_38'}
+m_flag = {module='m_flag'}
+full_schedule = {module='ole_miss_full_schedule'}
+schedule = {module='ole_miss_upcoming'}
+top25 = {module='ap_top25'}
+espn_ncf = {module='espn_ncf'}
+nyt_politics = {module='nyt_news'}
+nyt_national = {module='nyt_news', url='https://rss.nytimes.com/services/xml/rss/nyt/US.xml', intro=''}
+dtime = {module = 'date_time.py'}
+news = {module = 'ap_news.py'}
+sec = {module='sec_headlines'}
+rankings = {module='cfb_rankings'}
+rebels = {module='ole_miss_rebels'}
+golding = {module='pete_golding'}
+# Note that the ".py" at the end of the module is optional
+# lucky = {module = 'lucky_numbers'}
+# Example of a segment that requires additional initialization values
+ole_miss = {module='ole_miss_football'}
+# Example of telling a segment not to show intro credits when instantiated
+# otd = {module = 'wiki_on_this_day', intro = ''}
+# Example of declaring a segment module more than once, with a different key
+# and different initialization parameters.  Here, we're declaring us_weather
+# twice, in order to show two different cities.  That's perfectly legal!
+# (Only one intro will be shown per module, to prevent duplicates.)
+# dfw_wx = {module='us_weather', refresh=15, lat=32.898600, lon=-97.040300, location='Dallas-Fort Worth Intl Airport'}
+
+
+
+# The playlist is where you specify the order of the segments declared above,
+# and the speed at which RetroFeed continuously loops through that order.
+# Be sure to use the keys initialized above and not the module names!
+#
+# If a TOML array is given instead of a string, the first element of the array
+# is assumed to be the key, and the second element is assumed to be additional
+# parameters for formatting the data gathered by the segment.  This lets you
+# declare a segment only once in the above section, resulting in just one
+# segment doing the fetching/processing of info, but then showing that info in
+# different ways at different spots in the playlist.  For example, showing the
+# full weather forecast for a city only once per playlist, with abbreviated
+# weather at all other points in the playlist.  If a segment takes these sorts
+# of display parameters, but none are given, defaults will be assumed.
+[playlist]
+segment_pause = 1        # Seconds to wait between segments
+
+order = ['dtime',
+         'full_schedule',
+         'rebels',
+         'nyt_national',
+         'dtime',
+         'top25', 
+         'rebel_results',
+         'channel_38',
+         'around_the_sec',
+         'dtime',
+         'conditions',
+         'schedule',
+         'espn_ncf',
+         'metal_shop',
+         'nyt_politics',
+         'dtime',
+         'golding',
+         'ole_miss',
+         'rankings',
+         'sec',
+         'm_flag',
+]
+#         'news',
+#         ['news', {items = 3, headline_mode = true}]
