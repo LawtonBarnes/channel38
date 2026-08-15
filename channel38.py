@@ -52,7 +52,7 @@ from display import Display, GoHomeRequested, QuitRequested, RestartRequested, S
 
 
 # Globals...
-VERSION = '1.1'
+VERSION = '1.2'
 COPYRIGHT_YEAR = '2026'
 CONFIG_FILENAME = 'config.toml'
 EXPECTED_TABLES = ['display', 'segments', 'playlist']
