@@ -52,9 +52,8 @@ from display import Display, GoHomeRequested, QuitRequested, RestartRequested, S
 
 
 # Globals...
-VERSION = '1.2'
+VERSION = '1.3'
 COPYRIGHT_YEAR = '2026'
-CONFIG_FILENAME = 'config.toml'
 EXPECTED_TABLES = ['display', 'segments', 'playlist']
 
 # See menu.py -- Home exits with this so menu.py's launch_app() knows to
@@ -64,6 +63,14 @@ EXIT_GOTO_HOME = 42
 BASE_DIR = Path(__file__).resolve().parent
 FONT_PATH = BASE_DIR / "VCR_OSD_MONO_1.001.ttf"
 CLICK_PATH = BASE_DIR / "click.wav"
+# Was a bare relative filename -- open()'d it fine when run manually
+# from /opt/channel38 (matches CWD), but STRINGS launches every app
+# with CWD=/ (no WorkingDirectory= in strings.service), so the same
+# relative lookup silently resolved to /config.toml instead and hit
+# the "Missing configuration file" early-return below every time,
+# with zero indication it was a CWD problem rather than a truly
+# missing file. Absolute, like every other path in this file.
+CONFIG_FILENAME = str(BASE_DIR / 'config.toml')
 MAX_FONT_SIZE = 64
 MIN_FONT_SIZE = 8
 UNDERSCAN = 0.10  # fraction of each dimension reserved as border, split both sides
