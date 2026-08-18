@@ -64,7 +64,7 @@ BASE_DIR = Path(__file__).resolve().parent
 FONT_PATH = BASE_DIR / "VCR_OSD_MONO_1.001.ttf"
 CLICK_PATH = BASE_DIR / "click.wav"
 SPLASH_PATH = BASE_DIR / "splash.png"  # optional -- see show_splash()
-SPLASH_SECONDS = 3.0
+SPLASH_SECONDS = 5.0
 BLACK = (0, 0, 0)  # only used by show_splash()'s letterbox fill -- this app is otherwise ANSI-color-string based, not RGB tuples
 # Was a bare relative filename -- open()'d it fine when run manually
 # from /opt/channel38 (matches CWD), but STRINGS launches every app
