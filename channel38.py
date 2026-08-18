@@ -52,7 +52,7 @@ from display import Display, GoHomeRequested, QuitRequested, RestartRequested, S
 
 
 # Globals...
-VERSION = '1.3'
+VERSION = '1.4'
 COPYRIGHT_YEAR = '2026'
 EXPECTED_TABLES = ['display', 'segments', 'playlist']
 
