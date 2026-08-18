@@ -63,6 +63,9 @@ EXIT_GOTO_HOME = 42
 BASE_DIR = Path(__file__).resolve().parent
 FONT_PATH = BASE_DIR / "VCR_OSD_MONO_1.001.ttf"
 CLICK_PATH = BASE_DIR / "click.wav"
+SPLASH_PATH = BASE_DIR / "splash.png"  # optional -- see show_splash()
+SPLASH_SECONDS = 3.0
+BLACK = (0, 0, 0)  # only used by show_splash()'s letterbox fill -- this app is otherwise ANSI-color-string based, not RGB tuples
 # Was a bare relative filename -- open()'d it fine when run manually
 # from /opt/channel38 (matches CWD), but STRINGS launches every app
 # with CWD=/ (no WorkingDirectory= in strings.service), so the same
@@ -171,6 +174,30 @@ class FrameBuffer:
     def close(self):
         self.mm.close()
         os.close(self.fd)
+
+
+def show_splash(fb):
+    """Blocking splash shown once at launch, before the app's real
+    content appears -- same technique/rationale as bars.py's version of
+    this function, duplicated per this file's own no-shared-library
+    convention. Writes straight to fb, bypassing the Display class
+    entirely, since Display is ANSI-terminal/character-cell based and
+    has no image-blitting concept of its own."""
+    if not SPLASH_PATH.exists():
+        return
+    try:
+        img = pygame.image.load(str(SPLASH_PATH)).convert()
+    except (pygame.error, OSError) as exc:
+        print(f"Splash load failed: {exc}", file=sys.stderr)
+        return
+    canvas = pygame.Surface((FRAME_W, FRAME_H))
+    canvas.fill(BLACK)
+    img_w, img_h = img.get_size()
+    scale = min(FRAME_W / img_w, FRAME_H / img_h)
+    scaled = pygame.transform.smoothscale(img, (int(img_w * scale), int(img_h * scale)))
+    canvas.blit(scaled, ((FRAME_W - scaled.get_width()) // 2, (FRAME_H - scaled.get_height()) // 2))
+    fb.write_surface(canvas)
+    time.sleep(SPLASH_SECONDS)
 
 
 
@@ -347,6 +374,8 @@ def main():
         console_graphics_mode = True
     except OSError as exc:
         print(f"Console graphics mode not available: {exc}", file=sys.stderr)
+
+    show_splash(fb)
 
     d = Display(config['display'], fb, font, selector, quit_flag, click_sound,
                 underscan=UNDERSCAN, target_width=TARGET_WIDTH, font_path=FONT_PATH)
