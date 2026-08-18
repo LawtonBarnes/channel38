@@ -131,3 +131,6 @@ dmypy.json
 
 # session .bak files
 *.bak-*
+
+# splash image, deployed separately per host -- not source
+splash.png
