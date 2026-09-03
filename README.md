@@ -44,6 +44,49 @@ order, timing, and which are active are controlled via `config.toml` —
 see `segments/` for individual modules, each following the pattern in
 `segments/template.py`.
 
+## Requirements
+
+- Internet access (every segment pulls live data over HTTP; there's no
+  offline/cached fallback content).
+- `pygame`, `evdev`, `numpy`, `beautifulsoup4`, `requests` (system
+  packages, no venv).
+
+## Installing on a fresh Pi
+
+1. **Install dependencies:**
+   ```bash
+   sudo apt-get install -y python3-pygame python3-evdev python3-numpy python3-bs4 python3-requests
+   ```
+
+2. **Copy the files:**
+   ```bash
+   sudo git clone https://github.com/LawtonBarnes/channel38.git /opt/channel38
+   ```
+
+3. **Create the launcher:**
+   ```bash
+   sudo tee /usr/local/bin/channel38 > /dev/null << 'EOF'
+   #!/bin/sh
+   exec python3 /opt/channel38/channel38.py "$@"
+   EOF
+   sudo chmod +x /usr/local/bin/channel38 /opt/channel38/channel38.py
+   ```
+
+4. **Enable composite video output** (same `vc4-fkms-v3d` requirement as
+   [BARS](https://github.com/LawtonBarnes/bars) -- see that repo's README
+   for the full config.txt steps).
+
+5. **Set boot to console** and optionally **auto-launch on boot** --
+   same steps as BARS's README, substituting `channel38` for `bars`.
+
+6. **Reboot** and confirm the CRT shows the segment rotation.
+
+If you're running this as part of a [McBrain](https://github.com/LawtonBarnes/mcbrain)
+fleet instead of standalone, skip steps 3/5 -- install alongside
+[STRINGS](https://github.com/LawtonBarnes/strings) and assign it from
+[SCRUTE](https://github.com/LawtonBarnes/scrutinizer) instead of a
+manual launcher/autologin.
+
 ## Credits
 
 - Built on [RetroFeed](https://github.com/JeffJetton/retrofeed) by Jeff Jetton (MIT License — see `LICENSE`)
