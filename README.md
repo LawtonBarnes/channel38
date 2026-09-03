@@ -13,7 +13,9 @@ by Jeff Jetton — this version replaces the general news/weather/finance
 segments with Ole Miss/SEC-specific content and a full rewrite of the
 rendering pipeline.
 
-![Framebuffer capture](./img/SCREEN_CH38.png)
+![Framebuffer capture -- Rebel Results](./img/SCREEN_CH38.png)
+
+![Framebuffer capture -- Ole Miss schedule](./img/SCREEN_CH38_RANKINGS.png)
 
 ## Architecture
 
