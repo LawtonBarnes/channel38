@@ -15,6 +15,7 @@
 import datetime as dt
 import re
 import urllib.request
+from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
 from segment_parent import SegmentParent
 
@@ -92,7 +93,14 @@ class Segment(SegmentParent):
                     line = line.strip()
                     if not line or line.startswith('http'):
                         continue
-                    detail_lines.append(self.d.clean_chars(line))
+                    line = self.d.clean_chars(line)
+                    url_match = re.search(r'https?://\S+', line)
+                    if url_match:
+                        domain = urlsplit(url_match.group(0)).netloc
+                        if domain.startswith('www.'):
+                            domain = domain[4:]
+                        line = f'STREAMING: {domain.upper()}'
+                    detail_lines.append(line)
                     if len(detail_lines) == 2:
                         break
 
