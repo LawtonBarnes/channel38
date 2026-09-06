@@ -52,6 +52,8 @@ sec = {module='sec_headlines'}
 rankings = {module='cfb_rankings'}
 rebels = {module='ole_miss_rebels'}
 golding = {module='pete_golding'}
+wapt = {module='wapt_news'}
+wlbt = {module='wlbt_news'}
 # Note that the ".py" at the end of the module is optional
 # lucky = {module = 'lucky_numbers'}
 # Example of a segment that requires additional initialization values
@@ -89,20 +91,22 @@ order = ['dtime',
 #         'dtime',
          'top25', 
          'rebel_results',
-         'channel_38',
+#         'channel_38',
          'around_the_sec',
          'dtime',
          'conditions',
+         'wlbt',
          'schedule',
          'espn_ncf',
          'metal_shop',
-         'nyt_politics',
+#         'nyt_politics',
 #         'dtime',
          'golding',
          'ole_miss',
          'rankings',
          'sec',
-         'm_flag',
+#         'm_flag',
+         'wapt',
 ]
 #         'news',
 #         ['news', {items = 3, headline_mode = true}]

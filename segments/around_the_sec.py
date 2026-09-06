@@ -2,7 +2,7 @@
 #
 #  Around the SEC
 #
-#  Pulls current SEC football scores from ESPN's scoreboard API
+#  Pulls SEC football scores from the last 7 days from ESPN's scoreboard API
 #
 #   - Initialization parameters:
 #
@@ -17,7 +17,7 @@ from segment_parent import SegmentParent
 
 INTRO = 'Around the SEC - Live Scores from ESPN'
 
-URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=8'
+URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=8&dates={dates}'
 
 GREEN = '\033[32m'
 WHITE = '\033[37m'
@@ -35,7 +35,10 @@ class Segment(SegmentParent):
         self.data = {'fetched_on': dt.datetime.now(),
                      'games': []}
         try:
-            req = urllib.request.Request(URL, headers={'User-Agent': 'Mozilla/5.0'})
+            today = dt.datetime.utcnow()
+            start = today - dt.timedelta(days=7)
+            date_range = f"{start.strftime('%Y%m%d')}-{today.strftime('%Y%m%d')}"
+            req = urllib.request.Request(URL.format(dates=date_range), headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read())
 
@@ -56,13 +59,18 @@ class Segment(SegmentParent):
                 else:
                     game_status = status.get('shortDetail', '')
 
+                event_date = dt.datetime.strptime(event['date'], '%Y-%m-%dT%H:%MZ')
+
                 self.data['games'].append({
+                    'date': event_date,
                     'away_name': self.d.clean_chars(away['team']['location']),
                     'away_score': away.get('score', '0'),
                     'home_name': self.d.clean_chars(home['team']['location']),
                     'home_score': home.get('score', '0'),
                     'status': game_status
                 })
+
+            self.data['games'].sort(key=lambda g: g['date'])
         except Exception as e:
             self.data['games'] = []
 
@@ -88,7 +96,7 @@ class Segment(SegmentParent):
 
         if not self.data['games']:
             self.d.set_color(GREEN)
-            self.d.print('No SEC games in progress.')
+            self.d.print('No SEC games in the last 7 days.')
             return
 
         for game in self.data['games']:
@@ -107,6 +115,7 @@ class Segment(SegmentParent):
             self.d.print(' ' + game['home_score'])
 
             self.d.set_color(GREEN)
-            self.d.print(game['status'].center(self.d.width))
+            status_line = f"{game['status']} - {game['date'].strftime('%b %d').upper()}"
+            self.d.print(status_line.center(self.d.width))
             self.d.newline()
             self.d.wait_beats(1)

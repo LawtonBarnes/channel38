@@ -34,6 +34,4 @@ class Segment(SegmentParent):
         d.print('KEEP ON ROCKIN LIKE DOKKEN'.center(d.width))
         d.newline()
         d.newline()
-        d.newline()
-        d.newline()
         d.newline(3)

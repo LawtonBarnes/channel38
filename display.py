@@ -49,8 +49,8 @@ class GoHomeRequested(BaseException):
 
 
 class SegmentSkip(BaseException):
-    # Raised when Up/Down is pressed during output, to jump the main
-    # playlist loop forward (+1) or backward (-1) instead of quitting.
+    # Raised when Left/Right is pressed during output, to jump the main
+    # playlist loop backward (-1) or forward (+1) instead of quitting.
     # Same BaseException rationale as QuitRequested above.
     def __init__(self, delta):
         super().__init__()
@@ -88,6 +88,14 @@ ORANGE = (0xFF, 0xA5, 0x00)
 POWER_OPTIONS = ["NO", "YES", "RESTART"]
 MOUSE_MOVE_THRESHOLD = 12  # cumulative REL_X/REL_Y units before it counts as one direction press
 
+# Same timing override channel38.py's -f/--fast startup flag applies via
+# override_timings() -- duplicated here (not imported, matching this
+# codebase's no-shared-library convention) so the remote's Up/Down can
+# toggle it live, at runtime, instead of only at process startup.
+FAST_CPS = 1000
+FAST_NEWLINE_CPS = 1000
+FAST_BEAT_DELAY = 0.1
+
 
 def _rel_to_keycode(axis, accum):
     """Translates accumulated air-mouse-mode movement into the same
@@ -117,6 +125,13 @@ class Display:
         self._newline_cps = display_settings.get('newline_cps', 100)
         self._newline_delay = 1/self._newline_cps
         self._beat_delay = display_settings.get('beat_seconds', 1)
+        # Configured ("slow"/normal) speeds, kept aside so remote Up/Down
+        # can toggle fast mode on and back off again at runtime -- see
+        # set_fast_mode() below.
+        self._normal_cps = self._cps
+        self._normal_newline_cps = self._newline_cps
+        self._normal_beat_delay = self._beat_delay
+        self._fast_mode = False
         self._force_uppercase = display_settings.get('force_uppercase', True)
         self._verbose_updates = display_settings.get('verbose_updates', True)
         self._prefer_24hr_time = display_settings.get('prefer_24hr_time', True)
@@ -199,6 +214,28 @@ class Display:
         return self._beat_delay
 
     @property
+    def fast_mode(self):
+        return self._fast_mode
+
+    def set_fast_mode(self, enabled):
+        """Toggles between the configured ("slow"/normal) print speed and
+        the same fast timing channel38.py's -f/--fast flag applies -- but
+        live, from the remote's Up/Down, instead of only at startup."""
+        if enabled == self._fast_mode:
+            return
+        self._fast_mode = enabled
+        if enabled:
+            self._cps = FAST_CPS
+            self._newline_cps = FAST_NEWLINE_CPS
+            self._beat_delay = FAST_BEAT_DELAY
+        else:
+            self._cps = self._normal_cps
+            self._newline_cps = self._normal_newline_cps
+            self._beat_delay = self._normal_beat_delay
+        self._print_delay = 1 / self._cps
+        self._newline_delay = 1 / self._newline_cps
+
+    @property
     def force_uppercase(self):
         return self._force_uppercase
 
@@ -240,10 +277,14 @@ class Display:
             raise GoHomeRequested()
         if code in (ecodes.KEY_Q, ecodes.KEY_ESC, ecodes.KEY_BACK, ecodes.KEY_COMPOSE):
             raise QuitRequested()
-        if code == ecodes.KEY_UP:
+        if code == ecodes.KEY_RIGHT:
             raise SegmentSkip(1)
-        if code == ecodes.KEY_DOWN:
+        if code == ecodes.KEY_LEFT:
             raise SegmentSkip(-1)
+        if code == ecodes.KEY_UP:
+            self.set_fast_mode(True)
+        if code == ecodes.KEY_DOWN:
+            self.set_fast_mode(False)
         if code in (ecodes.KEY_VOLUMEUP, ecodes.KEY_F2):
             self._click_enabled = True
         if code in (ecodes.KEY_VOLUMEDOWN, ecodes.KEY_F3):
