@@ -66,6 +66,10 @@ CLICK_PATH = BASE_DIR / "click.wav"
 SPLASH_PATH = BASE_DIR / "splash.png"  # optional -- see show_splash()
 SPLASH_SECONDS = 5.0
 BLACK = (0, 0, 0)  # only used by show_splash()'s letterbox fill -- this app is otherwise ANSI-color-string based, not RGB tuples
+SPLASH_Y_OFFSET = 40  # pixels to shift the splash image up from dead-center
+SPLASH_VERSION_FONT_SIZE = 22  # matches JOAN JETT's info-HUD text size (info.FONT_SIZE)
+SPLASH_VERSION_COLOR = (0xFF, 0xA5, 0x00)  # orange, matches JOAN JETT's LOCATION header (colors.ORANGE)
+SPLASH_VERSION_GAP = 20  # pixels between the bottom of the splash image and the version text
 # Was a bare relative filename -- open()'d it fine when run manually
 # from /opt/channel38 (matches CWD), but STRINGS launches every app
 # with CWD=/ (no WorkingDirectory= in strings.service), so the same
@@ -197,7 +201,18 @@ def show_splash(fb):
     canvas = pygame.Surface((FRAME_W, FRAME_H))
     canvas.fill(BLACK)
     img_w, img_h = img.get_size()
-    canvas.blit(img, ((FRAME_W - img_w) // 2, (FRAME_H - img_h) // 2))
+    img_x = (FRAME_W - img_w) // 2
+    img_y = (FRAME_H - img_h) // 2 - SPLASH_Y_OFFSET
+    canvas.blit(img, (img_x, img_y))
+
+    # Version number underneath -- same font, size, color and centering
+    # as JOAN JETT's Info HUD LOCATION header (VCR_OSD_MONO, 22pt, orange
+    # FFA500, centered).
+    version_font = pygame.font.Font(str(FONT_PATH), SPLASH_VERSION_FONT_SIZE)
+    version_surf = version_font.render(f'VERSION {VERSION}', True, SPLASH_VERSION_COLOR)
+    canvas.blit(version_surf, ((FRAME_W - version_surf.get_width()) // 2,
+                                img_y + img_h + SPLASH_VERSION_GAP))
+
     fb.write_surface(canvas)
     time.sleep(SPLASH_SECONDS)
 
