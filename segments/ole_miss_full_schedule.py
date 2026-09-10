@@ -26,6 +26,15 @@ BLUE   = '\033[34m'
 CYAN   = '\033[36m'
 GREEN  = '\033[32m'
 
+# Shortened so these opponents don't run into the 7-char truncation in
+# format_line() below.
+OPPONENT_ALIASES = {
+    'Mississippi State': 'MSU',
+    'Florida': 'FLA',
+    'Oklahoma': 'OKLA',
+    'Vanderbilt': 'VANDY',
+}
+
 class Segment(SegmentParent):
 
     def __init__(self, display, init):
@@ -82,6 +91,7 @@ class Segment(SegmentParent):
             opponent = summary
         if '-' in opponent:
             opponent = opponent.split('-')[0].strip()
+        opponent = OPPONENT_ALIASES.get(opponent, opponent)
         tv = ''
         wear = ''
         result = ''
