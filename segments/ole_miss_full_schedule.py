@@ -13,6 +13,7 @@
 ################################################################################
 
 import datetime as dt
+import re
 import urllib.request
 from segment_parent import SegmentParent
 
@@ -68,6 +69,7 @@ class Segment(SegmentParent):
 
     def parse_game(self, game):
         summary = game['summary']
+        summary = re.sub(r'^\[[^\]]*\]\s*', '', summary)
         summary = summary.replace('Ole Miss Football ', '')
         if summary.startswith('vs '):
             home_away = 'home'
@@ -82,7 +84,11 @@ class Segment(SegmentParent):
             opponent = opponent.split('-')[0].strip()
         tv = ''
         wear = ''
+        result = ''
         desc = game.get('description', '')
+        desc_parts = desc.split('\\n')
+        if len(desc_parts) > 1 and re.match(r'^[WL]\s+\d+-\d+$', desc_parts[1].strip()):
+            result = desc_parts[1].strip()
         if 'TV:' in desc:
             tv_part = desc.split('TV:')[1]
             tv = tv_part.split('\\n')[0].strip()[:3]
@@ -99,7 +105,8 @@ class Segment(SegmentParent):
             'home_away': home_away,
             'location': game.get('location', ''),
             'tv': tv,
-            'wear': wear
+            'wear': wear,
+            'result': result
         }
 
     def refresh_data(self):
@@ -125,22 +132,25 @@ class Segment(SegmentParent):
             opp = game['opponent'][:8]
         opp = opp.ljust(8)
 
-        # Time: 5 chars right-aligned, blank if no time
-        if game['time']:
-            h, m = game['time'].split(':')
-            h = int(h)
-            if h >= 12:
-                h -= 12
-            if h == 0:
-                h = 12
-            time_str = f'{h}:{m}'.rjust(5)
+        # Right column: final score once the game is complete, else time + TV
+        if game['result']:
+            tv_col = game['result']
         else:
-            time_str = '     '
+            if game['time']:
+                h, m = game['time'].split(':')
+                h = int(h)
+                if h >= 12:
+                    h -= 12
+                if h == 0:
+                    h = 12
+                time_str = f'{h}:{m}'
+                tv = game['tv'][:3] if game['tv'] else 'TBA'
+                tv_col = f'{time_str} {tv}'
+            else:
+                tv_col = game['tv'][:3] if game['tv'] else 'TBA'
+        tv_col = tv_col[:8].rjust(8)
 
-        # TV: 3 chars
-        tv = game['tv'][:3].ljust(3) if game['tv'] else 'TBA'
-
-        return date_str, time_str, opp, tv
+        return date_str, opp, tv_col
 
     def show(self, fmt):
         if self.data_is_stale():
@@ -175,14 +185,13 @@ class Segment(SegmentParent):
 
         # Print each game
         for game in self.data['games']:
-            date_str, time_str, opp, tv = self.format_line(game)
+            date_str, opp, tv_col = self.format_line(game)
             self.d.set_color(RED)
             self.d.print(date_str + ' ', end='')
             self.d.set_color(WHITE)
             self.d.print(opp + ' ', end='')
             self.d.set_color(CYAN)
-            self.d.print(time_str + ' ', end='')
-            self.d.print(tv)
+            self.d.print(tv_col)
             self.d.newline(self.d.beat_delay)
 
         # Next game wear line
