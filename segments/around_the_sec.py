@@ -76,8 +76,9 @@ class Segment(SegmentParent):
 
                 self.data['games'].append({
                     'date': event_date,
-                    'matchup': self.d.clean_chars(event.get('shortName', '')),
+                    'away_name': self.d.clean_chars(away['team']['location']),
                     'away_score': away.get('score', '0'),
+                    'home_name': self.d.clean_chars(home['team']['location']),
                     'home_score': home.get('score', '0'),
                     'status': game_status,
                     'live': state == 'in'
@@ -114,13 +115,22 @@ class Segment(SegmentParent):
 
         for game in self.data['games']:
 
-            score = f"{game['away_score']}-{game['home_score']}"
+            away = game['away_name'][:18]
+            home = game['home_name'][:16]
             status_color = MAGENTA if game['live'] else GREEN
 
             self.d.set_color(WHITE)
-            self.d.print(game['matchup'] + ' ', end='')
+            self.d.print(f"{away:>18}", end='')
             self.d.set_color(YELLOW)
-            self.d.print(score + ' ', end='')
+            self.d.print(' ' + game['away_score'])
+
+            self.d.set_color(WHITE)
+            self.d.print(f"{'@ ' + home:>18}", end='')
+            self.d.set_color(YELLOW)
+            self.d.print(' ' + game['home_score'])
+
             self.d.set_color(status_color)
-            self.d.print(game['status'])
-            self.d.newline(self.d.beat_delay)
+            status_line = f"{game['status']} - {game['date'].strftime('%b %d').upper()}"
+            self.d.print(status_line.center(self.d.width))
+            self.d.newline()
+            self.d.wait_beats(1)
