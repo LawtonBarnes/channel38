@@ -38,36 +38,49 @@ class Segment(SegmentParent):
             today = dt.datetime.utcnow()
             start = today - dt.timedelta(days=7)
             date_range = f"{start.strftime('%Y%m%d')}-{today.strftime('%Y%m%d')}"
-            req = urllib.request.Request(URL.format(dates=date_range), headers={'User-Agent': 'Mozilla/5.0'})
+            # No custom User-Agent here on purpose -- ESPN's Akamai WAF 403s
+            # on a spoofed browser string (or a blank one), but lets through
+            # urllib's own default identifier. Confirmed by hand: 'Mozilla/5.0'
+            # -> 403, no header at all -> 200, same URL either way.
+            req = urllib.request.Request(URL.format(dates=date_range))
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read())
 
             for event in data.get('events', []):
+                status = event['status']['type']
+                state = status['state']
+                # Only actual scores -- not-yet-started games are the
+                # full-season schedule segment's job, not this one's.
+                if state not in ('in', 'post'):
+                    continue
+
                 comp = event['competitions'][0]
                 competitors = comp['competitors']
                 home = next(c for c in competitors if c['homeAway'] == 'home')
                 away = next(c for c in competitors if c['homeAway'] == 'away')
 
-                status = event['status']['type']
-                state = status['state']
                 if state == 'post':
-                    game_status = 'Final'
-                elif state == 'in':
-                    period = event['status'].get('period', '')
-                    clock = event['status'].get('displayClock', '')
-                    game_status = f"Q{period} {clock}"
+                    game_status = 'FINAL'
+                elif 'HALFTIME' in status.get('name', ''):
+                    game_status = 'HALF'
                 else:
-                    game_status = status.get('shortDetail', '')
+                    period = event['status'].get('period', 0)
+                    clock = event['status'].get('displayClock', '')
+                    if period and period > 4:
+                        qtr = 'OT' if period == 5 else f'{period - 4}OT'
+                    else:
+                        qtr = f'Q{period}' if period else ''
+                    game_status = f'{clock} {qtr}'.strip()
 
                 event_date = dt.datetime.strptime(event['date'], '%Y-%m-%dT%H:%MZ')
 
                 self.data['games'].append({
                     'date': event_date,
-                    'away_name': self.d.clean_chars(away['team']['location']),
+                    'matchup': self.d.clean_chars(event.get('shortName', '')),
                     'away_score': away.get('score', '0'),
-                    'home_name': self.d.clean_chars(home['team']['location']),
                     'home_score': home.get('score', '0'),
-                    'status': game_status
+                    'status': game_status,
+                    'live': state == 'in'
                 })
 
             self.data['games'].sort(key=lambda g: g['date'])
@@ -101,21 +114,13 @@ class Segment(SegmentParent):
 
         for game in self.data['games']:
 
-            away = game['away_name'][:18]
-            home = game['home_name'][:16]
+            score = f"{game['away_score']}-{game['home_score']}"
+            status_color = MAGENTA if game['live'] else GREEN
 
             self.d.set_color(WHITE)
-            self.d.print(f"{away:>18}", end='')
+            self.d.print(game['matchup'] + ' ', end='')
             self.d.set_color(YELLOW)
-            self.d.print(' ' + game['away_score'])
-
-            self.d.set_color(WHITE)
-            self.d.print(f"{'@ ' + home:>18}", end='')
-            self.d.set_color(YELLOW)
-            self.d.print(' ' + game['home_score'])
-
-            self.d.set_color(GREEN)
-            status_line = f"{game['status']} - {game['date'].strftime('%b %d').upper()}"
-            self.d.print(status_line.center(self.d.width))
-            self.d.newline()
-            self.d.wait_beats(1)
+            self.d.print(score + ' ', end='')
+            self.d.set_color(status_color)
+            self.d.print(game['status'])
+            self.d.newline(self.d.beat_delay)
