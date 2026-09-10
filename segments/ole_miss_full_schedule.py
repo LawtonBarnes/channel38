@@ -33,6 +33,7 @@ OPPONENT_ALIASES = {
     'Florida': 'FLA',
     'Oklahoma': 'OKLA',
     'Vanderbilt': 'VANDY',
+    'Missouri': 'MIZZOU',
 }
 
 class Segment(SegmentParent):
