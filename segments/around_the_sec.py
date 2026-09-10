@@ -2,11 +2,12 @@
 #
 #  Around the SEC
 #
-#  Pulls SEC football scores from the last 6 days from ESPN's scoreboard API
-#
-#   - Initialization parameters:
-#
-#       refresh     Minutes to wait between fetches (default=15)
+#  Pulls SEC football scores from the last 6 days from ESPN's scoreboard API.
+#  Refetched every time this segment comes up in the playlist rotation
+#  (not on a fixed timer) -- one lightweight JSON request per lap through
+#  the playlist is nowhere near enough to trip any bot-detection on a
+#  public scoreboard endpoint, and it keeps scores current whatever the
+#  actual lap time ends up being.
 #
 ################################################################################
 
@@ -29,7 +30,7 @@ BLUE    = '\033[34m'
 class Segment(SegmentParent):
 
     def __init__(self, display, init):
-        super().__init__(display, init, default_refresh=15, default_intro=INTRO)
+        super().__init__(display, init, default_intro=INTRO)
 
     def refresh_data(self):
         self.data = {'fetched_on': dt.datetime.now(),
@@ -92,13 +93,16 @@ class Segment(SegmentParent):
             self.data['games'] = []
 
     def show(self, fmt):
-        if self.data_is_stale():
-            self.d.set_color(GREEN)
-            self.d.print_update_msg('Getting SEC Scores')
-            self.refresh_data()
-            self.d.newline()
-            self.d.newline()
-            self.d.newline()
+        # Refreshed unconditionally every time this segment airs, rather
+        # than gated on data_is_stale()'s timer, so it's always showing
+        # this lap's scores instead of whatever was cached up to 15
+        # minutes ago.
+        self.d.set_color(GREEN)
+        self.d.print_update_msg('Getting SEC Scores')
+        self.refresh_data()
+        self.d.newline()
+        self.d.newline()
+        self.d.newline()
 
         self.d.newline()
         title = ' AROUND THE SEC '
