@@ -43,8 +43,17 @@ class Segment(SegmentParent):
         time_long = ('Current time is ' + time_text)
         
         if fmt == 'long':
-            self.d.print(date_long)
-        if fmt == 'long' or fmt == 'longtime':
+            # One continuous paragraph (date sentence + time sentence)
+            # instead of two separate lines, so it reads as prose and
+            # wraps naturally at the display's right edge.
+            full_date = now.strftime('%A %B') + f' {now.day}, {now.year}'
+            h = now.hour % 12
+            if h == 0:
+                h = 12
+            full_time = f'{h}' + now.strftime(':%M %p')
+            self.d.print(f'It is {full_date}. The current time is {full_time}.')
+            return
+        if fmt == 'longtime':
             self.d.print(time_long)
             return
         if fmt == 'short':
