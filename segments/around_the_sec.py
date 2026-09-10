@@ -2,7 +2,7 @@
 #
 #  Around the SEC
 #
-#  Pulls SEC football scores from the last 7 days from ESPN's scoreboard API
+#  Pulls SEC football scores from the last 6 days from ESPN's scoreboard API
 #
 #   - Initialization parameters:
 #
@@ -36,7 +36,10 @@ class Segment(SegmentParent):
                      'games': []}
         try:
             today = dt.datetime.utcnow()
-            start = today - dt.timedelta(days=7)
+            # 6 days, not 7 -- a full week reaches back to last Saturday's
+            # games too, which reads as confusing/stale on a Saturday when
+            # this week's games are also underway.
+            start = today - dt.timedelta(days=6)
             date_range = f"{start.strftime('%Y%m%d')}-{today.strftime('%Y%m%d')}"
             # No custom User-Agent here on purpose -- ESPN's Akamai WAF 403s
             # on a spoofed browser string (or a blank one), but lets through
@@ -110,27 +113,36 @@ class Segment(SegmentParent):
 
         if not self.data['games']:
             self.d.set_color(GREEN)
-            self.d.print('No SEC games in the last 7 days.')
+            self.d.print('No SEC games in the last 6 days.')
             return
+
+        # Name field is 21 chars wide (was 18) -- rjust naturally shifts
+        # shorter names further right within it, and the wider field also
+        # allows 3 more characters of name before truncation. Away name
+        # and "@ " + home name both fill this same 21-wide field, so the
+        # single space before the yellow score lands on the same column
+        # for every row.
+        NAME_W = 21
 
         for game in self.data['games']:
 
-            away = game['away_name'][:18]
-            home = game['home_name'][:16]
+            away = game['away_name'][:NAME_W]
+            home = game['home_name'][:NAME_W - 2]
             status_color = MAGENTA if game['live'] else GREEN
 
             self.d.set_color(WHITE)
-            self.d.print(f"{away:>18}", end='')
+            self.d.print(f"{away:>{NAME_W}}", end='')
             self.d.set_color(YELLOW)
             self.d.print(' ' + game['away_score'])
 
             self.d.set_color(WHITE)
-            self.d.print(f"{'@ ' + home:>18}", end='')
+            self.d.print(f"{'@ ' + home:>{NAME_W}}", end='')
             self.d.set_color(YELLOW)
             self.d.print(' ' + game['home_score'])
 
+            # Right-justified under the team names (not centered, and no
+            # date) -- just FINAL or the live clock/quarter.
             self.d.set_color(status_color)
-            status_line = f"{game['status']} - {game['date'].strftime('%b %d').upper()}"
-            self.d.print(status_line.center(self.d.width))
+            self.d.print(game['status'].rjust(NAME_W))
             self.d.newline()
             self.d.wait_beats(1)
