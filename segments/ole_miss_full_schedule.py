@@ -125,12 +125,14 @@ class Segment(SegmentParent):
         # Date: MMM DD = 6 chars
         date_str = game['date'].strftime('%b %d').upper()
 
-        # Opponent: @ prefix if away, padded/truncated to 8 chars
+        # Opponent: @ prefix if away, padded/truncated to 7 chars (was 8 --
+        # shortened by 1 to give the right column room for an 11:00 kickoff,
+        # which is 1 char wider than any single-digit hour).
         if game['home_away'] == 'away':
-            opp = ('@ ' + game['opponent'])[:8]
+            opp = ('@ ' + game['opponent'])[:7]
         else:
-            opp = game['opponent'][:8]
-        opp = opp.ljust(8)
+            opp = game['opponent'][:7]
+        opp = opp.ljust(7)
 
         # Right column: final score once the game is complete, else time + TV
         if game['result']:
@@ -148,7 +150,7 @@ class Segment(SegmentParent):
                 tv_col = f'{time_str} {tv}'
             else:
                 tv_col = game['tv'][:3] if game['tv'] else 'TBA'
-        tv_col = tv_col[:8].rjust(8)
+        tv_col = tv_col[:9].rjust(9)
 
         return date_str, opp, tv_col
 
