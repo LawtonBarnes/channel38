@@ -68,12 +68,20 @@ class Segment(SegmentParent):
                 if event_date < cutoff or event_date > dt.datetime.utcnow():
                     continue
 
-                # Pull the [W]/[L]/[N] tag if present (not all events have one)
-                m = re.match(r'\[(\w+)\]\s*(.*)', title)
+                # Titles are like "9/6 6:30 PM [W] Ole Miss Football vs
+                # Louisville" -- a date/time prefix, then an optional
+                # [W]/[L]/[N] tag, then the actual "Ole Miss ..." text.
+                # Anchor on "Ole Miss" itself (always present) rather than
+                # assuming the tag sits at the very start of the string,
+                # which used to leave the date/time (and the tag, when the
+                # regex missed) sitting in the white header line below.
+                m = re.search(r'\[(\w+)\]\s*(Ole Miss.*)', title)
                 if m:
                     tag, rest = m.group(1), m.group(2)
                 else:
-                    tag, rest = None, title
+                    tag = None
+                    m = re.search(r'(Ole Miss.*)', title)
+                    rest = m.group(1) if m else title
 
                 if rest.startswith('Ole Miss '):
                     rest = rest[len('Ole Miss '):]
