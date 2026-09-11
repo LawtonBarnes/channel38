@@ -15,7 +15,6 @@
 ################################################################################
 
 import datetime as dt
-import re
 import urllib.request
 from bs4 import BeautifulSoup
 from segment_parent import SegmentParent
@@ -37,20 +36,10 @@ class Segment(SegmentParent):
             with urllib.request.urlopen(req, timeout=10) as r:
                 soup = BeautifulSoup(r.read(), 'html.parser')
 
-            # Grab the "through games" date -- ncaa.com's own text is
-            # something like "Through Games SEP. 7, 2026"; reformat to a
-            # plain "Through Games MM/DD/YYYY" dateline instead.
+            # Grab the "through games" date
             through = soup.find(string=lambda t: t and 'Through Games' in t)
             if through:
                 self.data['as_of'] = through.strip()
-                m = re.search(r'Through Games\s+([A-Za-z]+)\.?\s+(\d+),?\s*(\d+)', through)
-                if m:
-                    month_str, day_str, year_str = m.groups()
-                    try:
-                        as_of_date = dt.datetime.strptime(f'{month_str} {day_str} {year_str}', '%b %d %Y')
-                        self.data['as_of'] = f"Through Games {as_of_date.strftime('%m/%d/%Y')}"
-                    except ValueError:
-                        pass
 
             # Parse the rankings table
             table = soup.find('table')
