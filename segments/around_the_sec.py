@@ -18,7 +18,7 @@ from segment_parent import SegmentParent
 
 INTRO = 'Around the SEC - Live Scores from ESPN'
 
-URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=8&dates={dates}'
+URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=8&dates={date}'
 
 GREEN = '\033[32m'
 WHITE = '\033[37m'
@@ -35,22 +35,34 @@ class Segment(SegmentParent):
     def refresh_data(self):
         self.data = {'fetched_on': dt.datetime.now(),
                      'games': []}
-        try:
-            today = dt.datetime.utcnow()
-            # 6 days, not 7 -- a full week reaches back to last Saturday's
-            # games too, which reads as confusing/stale on a Saturday when
-            # this week's games are also underway.
-            start = today - dt.timedelta(days=6)
-            date_range = f"{start.strftime('%Y%m%d')}-{today.strftime('%Y%m%d')}"
-            # No custom User-Agent here on purpose -- ESPN's Akamai WAF 403s
-            # on a spoofed browser string (or a blank one), but lets through
-            # urllib's own default identifier. Confirmed by hand: 'Mozilla/5.0'
-            # -> 403, no header at all -> 200, same URL either way.
-            req = urllib.request.Request(URL.format(dates=date_range))
-            with urllib.request.urlopen(req, timeout=10) as r:
-                data = json.loads(r.read())
+        # ESPN's scoreboard endpoint stopped accepting date RANGES
+        # (dates=START-END) sometime between 2026-09-10 and 2026-09-17 --
+        # confirmed by hand, every range query now 400s ("Failed to get
+        # events endpoint") regardless of span length or the groups/limit
+        # params, while a single dates=YYYYMMDD still works fine. Fetch
+        # each of the last 6 days individually instead and merge, so one
+        # bad day doesn't blank out the rest.
+        today = dt.datetime.utcnow().date()
+        seen_ids = set()
+        for days_back in range(6, -1, -1):
+            day = today - dt.timedelta(days=days_back)
+            try:
+                # No custom User-Agent here on purpose -- ESPN's Akamai WAF
+                # 403s on a spoofed browser string (or a blank one), but
+                # lets through urllib's own default identifier. Confirmed
+                # by hand: 'Mozilla/5.0' -> 403, no header at all -> 200,
+                # same URL either way.
+                req = urllib.request.Request(URL.format(date=day.strftime('%Y%m%d')))
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    data = json.loads(r.read())
+            except Exception:
+                continue
 
             for event in data.get('events', []):
+                event_id = event.get('id')
+                if event_id is not None and event_id in seen_ids:
+                    continue
+
                 status = event['status']['type']
                 state = status['state']
                 # Only actual scores -- not-yet-started games are the
@@ -78,6 +90,7 @@ class Segment(SegmentParent):
 
                 event_date = dt.datetime.strptime(event['date'], '%Y-%m-%dT%H:%MZ')
 
+                seen_ids.add(event_id)
                 self.data['games'].append({
                     'date': event_date,
                     'away_name': self.d.clean_chars(away['team']['location']),
@@ -88,9 +101,7 @@ class Segment(SegmentParent):
                     'live': state == 'in'
                 })
 
-            self.data['games'].sort(key=lambda g: g['date'])
-        except Exception as e:
-            self.data['games'] = []
+        self.data['games'].sort(key=lambda g: g['date'])
 
     def show(self, fmt):
         # Refreshed unconditionally every time this segment airs, rather
