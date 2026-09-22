@@ -25,6 +25,8 @@ import re
 import textwrap
 import time
 
+from pathlib import Path
+
 import pygame
 from evdev import ecodes
 
@@ -84,6 +86,8 @@ DEFAULT_COLOR = ANSI_COLORS[37]
 BG_COLOR = (0, 0, 0)
 WHITE = (255, 255, 255)
 ORANGE = (0xFF, 0xA5, 0x00)
+BLACK = (0, 0, 0)
+LOGO_PATH = Path(__file__).resolve().parent / "metalshop-logo.png"  # ABOUT screen -- see draw_about_screen()
 
 POWER_OPTIONS = ["NO", "YES", "RESTART"]
 MOUSE_MOVE_THRESHOLD = 12  # cumulative REL_X/REL_Y units before it counts as one direction press
@@ -95,6 +99,58 @@ MOUSE_MOVE_THRESHOLD = 12  # cumulative REL_X/REL_Y units before it counts as on
 FAST_CPS = 1000
 FAST_NEWLINE_CPS = 1000
 FAST_BEAT_DELAY = 0.1
+
+
+# ABOUT screen (2026-09-22, fleet-wide -- same layout in every app except
+# WX, duplicated per this codebase's no-shared-library convention). BACK
+# toggles it from the app's home level. Title top center, settings in the
+# middle, METAL SHOP logo bottom center. The logo is square-pixel art, so
+# it's stretched horizontally by 720/640 to look right on the CRT's
+# narrower-than-square 720x480 pixels.
+ABOUT_MARGIN_Y = 48  # keeps title/logo inside the CRT's visible area
+ABOUT_LINE_GAP = 8
+ABOUT_COLUMN_GAP = 16
+LOGO_X_STRETCH = 720 / 640
+
+
+def load_about_logo():
+    try:
+        img = pygame.image.load(str(LOGO_PATH)).convert_alpha()
+    except (pygame.error, OSError) as exc:
+        print(f"Logo load failed: {exc}", file=sys.stderr)
+        return None
+    w, h = img.get_size()
+    return pygame.transform.smoothscale(img, (round(w * LOGO_X_STRETCH), h))
+
+
+def draw_about_screen(canvas, title_font, body_font, logo, title, rows):
+    """`rows` is a list of (label, value) -- labels right-aligned in an
+    orange column, values left-aligned in white beside them, the block
+    centered in the space between the title and the logo. A row with an
+    empty label continues the previous row's value column."""
+    frame_w, frame_h = canvas.get_size()
+    canvas.fill(BLACK)
+    title_surf = title_font.render(title, True, ORANGE)
+    canvas.blit(title_surf, ((frame_w - title_surf.get_width()) // 2, ABOUT_MARGIN_Y))
+    top = ABOUT_MARGIN_Y + title_surf.get_height()
+    bottom = frame_h - ABOUT_MARGIN_Y
+    if logo is not None:
+        bottom -= logo.get_height()
+        canvas.blit(logo, ((frame_w - logo.get_width()) // 2, bottom))
+    if not rows:
+        return
+    label_surfs = [body_font.render(label, True, ORANGE) if label else None for label, _ in rows]
+    value_surfs = [body_font.render(str(value), True, WHITE) for _, value in rows]
+    label_w = max((l.get_width() for l in label_surfs if l), default=0)
+    value_w = max(v.get_width() for v in value_surfs)
+    line_h = body_font.get_linesize() + ABOUT_LINE_GAP
+    x0 = (frame_w - (label_w + ABOUT_COLUMN_GAP + value_w)) // 2
+    y = top + (bottom - top - line_h * len(rows)) // 2
+    for label_surf, value_surf in zip(label_surfs, value_surfs):
+        if label_surf:
+            canvas.blit(label_surf, (x0 + label_w - label_surf.get_width(), y))
+        canvas.blit(value_surf, (x0 + label_w + ABOUT_COLUMN_GAP, y))
+        y += line_h
 
 
 def _rel_to_keycode(axis, accum):
@@ -179,6 +235,20 @@ class Display:
         self._dialog_option_font = pygame.font.Font(str(font_path), 32)
         self._power_dialog_selection = 0  # index into POWER_OPTIONS, defaults to NO
         self._rel_accum = {"x": 0, "y": 0}
+
+        # ABOUT screen (2026-09-22) -- contents handed in by channel38.py's
+        # main() via set_about(), since the config lives there.
+        self._about_title_font = self._dialog_title_font
+        # 22, not the fleet's usual 26 -- CH38's playlist is long enough
+        # that it overran the title at 26.
+        self._about_body_font = pygame.font.Font(str(font_path), 22)
+        self._about_logo = load_about_logo()
+        self._about_title = ""
+        self._about_rows = []
+
+    def set_about(self, title, rows):
+        self._about_title = title
+        self._about_rows = rows
 
     # Getters, but no setters (to hopefully keep other code from altering display values)
     @property
@@ -275,8 +345,12 @@ class Display:
     def _handle_keycode(self, code):
         if code in (ecodes.KEY_HOMEPAGE, ecodes.KEY_HOME):
             raise GoHomeRequested()
-        if code in (ecodes.KEY_Q, ecodes.KEY_ESC, ecodes.KEY_BACK, ecodes.KEY_COMPOSE):
+        if code in (ecodes.KEY_Q, ecodes.KEY_ESC, ecodes.KEY_COMPOSE):
             raise QuitRequested()
+        if code == ecodes.KEY_BACK:
+            # Toggles ABOUT instead of quitting (2026-09-22) -- under
+            # STRINGS, quitting just meant an unwanted restart.
+            self._about_screen()
         if code == ecodes.KEY_RIGHT:
             raise SegmentSkip(1)
         if code == ecodes.KEY_LEFT:
@@ -355,6 +429,39 @@ class Display:
                     else:
                         continue
                     self._redraw(power_dialog=True)
+
+
+    def _draw_about(self):
+        canvas = pygame.Surface((self._fb.width, self._fb.height))
+        draw_about_screen(canvas, self._about_title_font, self._about_body_font, self._about_logo,
+                          self._about_title, self._about_rows)
+        self._fb.write_surface(canvas)
+
+    def _about_screen(self):
+        """Modal ABOUT loop entered on Back -- same shape as
+        _power_dialog(): blocks the segment that was typing (it resumes
+        where it left off) until Back closes it. Home/Q/Esc/Menu still
+        exit and Power still opens its dialog; every other key is
+        ignored so nothing changes unseen behind it."""
+        self._draw_about()
+        while True:
+            if self._quit_flag[0]:
+                raise QuitRequested()
+            for key, _ in self._selector.select(timeout=1):
+                for event in key.fileobj.read():
+                    if event.type != ecodes.EV_KEY or event.value != 1:
+                        continue
+                    code = event.code
+                    if code == ecodes.KEY_BACK:
+                        self._redraw()
+                        return
+                    if code in (ecodes.KEY_HOMEPAGE, ecodes.KEY_HOME):
+                        raise GoHomeRequested()
+                    if code in (ecodes.KEY_Q, ecodes.KEY_ESC, ecodes.KEY_COMPOSE):
+                        raise QuitRequested()
+                    if code == ecodes.KEY_POWER:
+                        self._power_dialog()
+                        self._draw_about()
 
 
 ########  Printing methods  ###################################################

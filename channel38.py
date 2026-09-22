@@ -34,6 +34,7 @@ import selectors
 import signal
 import subprocess
 import sys
+import textwrap
 import time
 import tomllib
 from pathlib import Path
@@ -52,7 +53,7 @@ from display import Display, GoHomeRequested, QuitRequested, RestartRequested, S
 
 
 # Globals...
-VERSION = '1.7'
+VERSION = '1.8'
 COPYRIGHT_YEAR = '2026'
 EXPECTED_TABLES = ['display', 'segments', 'playlist']
 
@@ -82,6 +83,7 @@ MAX_FONT_SIZE = 64
 MIN_FONT_SIZE = 8
 UNDERSCAN = 0.10  # fraction of each dimension reserved as border, split both sides
 TARGET_WIDTH = 26  # word-wrap column count
+ABOUT_PLAYLIST_WRAP = 36  # ABOUT screen's playlist column width, in characters
 FRAME_W, FRAME_H = 720, 480
 
 KDSETMODE = 0x4B3A
@@ -282,6 +284,23 @@ def instantiate_segments(config, d):
     return segments
 
 
+def about_rows(config):
+    """ABOUT screen contents (2026-09-22) -- typing speed, clock format,
+    and the playlist order, wrapped onto continuation rows so it fits
+    beside the label column."""
+    disp = config['display']
+    rows = [
+        ("SPEED", f"{disp.get('cps', 20)} CPS"),
+        ("CLOCK", "24 HR" if disp.get('24hr_time', True) else "12 HR"),
+    ]
+    # Names use non-breaking spaces while wrapping so a line only ever
+    # breaks between segments, never mid-name ("AROUND / THE SEC").
+    names = [parse_seg_key_and_fmt(seg)[0].upper().replace('_', ' ') for seg in config['playlist']['order']]
+    for i, line in enumerate(textwrap.wrap(', '.join(names), ABOUT_PLAYLIST_WRAP)):
+        rows.append(("PLAYLIST" if i == 0 else "", line.replace(' ', ' ')))
+    return rows
+
+
 def parse_seg_key_and_fmt(seg):
     seg_key = ''
     seg_fmt = {}
@@ -396,6 +415,7 @@ def main():
 
     d = Display(config['display'], fb, font, selector, quit_flag, click_sound,
                 underscan=UNDERSCAN, target_width=TARGET_WIDTH, font_path=FONT_PATH)
+    d.set_about(f"CHANNEL 38 {VERSION}", about_rows(config))
 
     pending_power_action = None  # None, "shutdown", or "restart"
     pending_exit_code = 0  # 0 or EXIT_GOTO_HOME
