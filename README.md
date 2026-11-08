@@ -1,5 +1,7 @@
 # CHANNEL 38 (`channel38`)
 
+> **Standalone:** runs on a single Raspberry Pi with an internet connection. Built around Ole Miss sports. For the weather segment, set your own NWS contact with `contact = '...'` on the `conditions` line in `config.toml` (it defaults to this repo's URL).
+
 A vintage-style news terminal for a Raspberry Pi + CRT, displaying live
 Ole Miss and SEC football updates, college football rankings, and news
 headlines over composite video in a TV-typewriter style (mimicking Don
