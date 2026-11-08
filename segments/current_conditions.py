@@ -8,6 +8,8 @@
 #   - Initialization parameters:
 #
 #       refresh     Minutes to wait between fetches (default=60)
+#       contact     Contact for the NWS User-Agent: your email or website
+#                   (default = this project's GitHub page)
 #
 ################################################################################
 
@@ -24,14 +26,17 @@ LON = -89.5192
 GREEN = '\033[32m'
 CYAN  = '\033[36m'
 
-# NWS API requires a User-Agent identifying the app/contact - replace email
-HEADERS = {'User-Agent': '(retrofeed, lawton@lawtonbarnes.com)'}
+# The NWS API requires a User-Agent naming the app and a contact. Set your
+# own with `contact = '...'` on this segment's line in config.toml.
+DEFAULT_CONTACT = 'https://github.com/LawtonBarnes/channel38'
 
 
 class Segment(SegmentParent):
 
     def __init__(self, display, init):
         super().__init__(display, init, default_refresh=60, default_intro=INTRO)
+        contact = init.get('contact', DEFAULT_CONTACT)
+        self.headers = {'User-Agent': f'(channel38, {contact})'}
 
     def refresh_data(self):
         self.data = {'fetched_on': dt.datetime.now(),
@@ -41,13 +46,13 @@ class Segment(SegmentParent):
         try:
             # Step 1: look up the gridpoint forecast URL for this lat/lon
             points_url = f'https://api.weather.gov/points/{LAT},{LON}'
-            req = urllib.request.Request(points_url, headers=HEADERS)
+            req = urllib.request.Request(points_url, headers=self.headers)
             with urllib.request.urlopen(req, timeout=10) as r:
                 points_data = json.loads(r.read())
             forecast_hourly_url = points_data['properties']['forecastHourly']
 
             # Step 2: pull the current hourly forecast period
-            req = urllib.request.Request(forecast_hourly_url, headers=HEADERS)
+            req = urllib.request.Request(forecast_hourly_url, headers=self.headers)
             with urllib.request.urlopen(req, timeout=10) as r:
                 forecast_data = json.loads(r.read())
             period = forecast_data['properties']['periods'][0]
